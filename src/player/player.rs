@@ -9,6 +9,8 @@ pub struct Player {
     pub fire_rate_ps: f32,
     pub damage_shot: u32,
     pub speed: f32,
+
+    pub xp: u32,
 }
 
 impl Default for Player {
@@ -19,6 +21,7 @@ impl Default for Player {
             damage_shot: 10,
             speed: 500.,
             size: 20.,
+            xp: 0,
         }
     }
 }

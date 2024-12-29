@@ -1,12 +1,15 @@
 use crate::enemy::Enemy;
 use crate::phase::{PhaseState, PhaseStatus};
 use crate::player::player::Player;
-use crate::player::PlayerMovedEvent;
+use crate::player::{PlayerMovedEvent, PlayerReceiveXpEvent};
+use crate::timefade::MoveAndFade;
+use crate::utils::random_direction;
 use bevy::input::ButtonInput;
 use bevy::math::Vec3;
-use bevy::prelude::{EventWriter, KeyCode, Query, Res, ResMut, Transform, Window, With};
+use bevy::prelude::*;
 use bevy::time::Time;
 use bevy::window::PrimaryWindow;
+use rand::{random, Rng};
 
 pub fn enemy_hit_player(
     mut player_query: Query<(&Player, &Transform)>,
@@ -81,5 +84,38 @@ pub fn player_movement(
         transform.translation = new_position;
 
         player_moved_event.send(PlayerMovedEvent);
+    }
+}
+
+pub fn receive_xp_listener(
+    mut commands: Commands,
+    mut player_query: Query<(&mut Player, &mut Transform)>,
+    mut event_reader: EventReader<PlayerReceiveXpEvent>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    for event in event_reader.read() {
+        if let Ok((mut player, position)) = player_query.get_single_mut() {
+            player.xp += event.xp;
+
+            let mut new_position = position.clone();
+            new_position.translation.y += player.size * 1.5;
+
+            commands.spawn((
+                MoveAndFade {
+                    speed: 50.,
+                    direction: Vec2::new(0., 1.),
+                    deceleration: 1.,
+                    timer: Timer::from_seconds(0.75, TimerMode::Once),
+                },
+                new_position,
+                Text2d::new(format!("+{:0}", event.xp)),
+                TextFont {
+                    font_size: 15.,
+                    ..default()
+                },
+                TextColor(Color::srgb(5.5, 0., 5.5)),
+                MeshMaterial2d(materials.add(Color::srgb(7.5, 7.5, 0.))),
+            ));
+        }
     }
 }

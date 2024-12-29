@@ -15,6 +15,8 @@ pub struct Shooter {
     pub direction: Vec2,
 
     pub last_shoot: Instant,
+
+    pub should_shoot: bool,
 }
 
 #[derive(Component)]
@@ -53,6 +55,10 @@ pub fn shoot_over_time(
             return;
         }
 
+        if shooter.should_shoot == false {
+            return;
+        }
+
         shooter.last_shoot = Instant::now();
 
         event_writer.send(ShootEvent {
@@ -69,7 +75,7 @@ pub fn shoot_event_listener(
     mut commands: Commands,
     mut event_reader: EventReader<ShootEvent>,
 ) {
-    const BULLET_SIZE: f32 = 4.;
+    const BULLET_SIZE: f32 = 2.;
 
     for event in event_reader.read() {
         commands.spawn((

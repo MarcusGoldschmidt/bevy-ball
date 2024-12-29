@@ -13,26 +13,8 @@ use bevy::utils::default;
 use bevy::window::PrimaryWindow;
 use rand::random;
 
-pub fn move_enemies(
-    mut enemy_query: Query<(&mut Enemy, &mut Transform)>,
-    time: Res<Time>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-) {
-    let window = window_query.single();
-
+pub fn move_enemies(mut enemy_query: Query<(&mut Enemy, &mut Transform)>, time: Res<Time>) {
     for (mut enemy, mut transform) in enemy_query.iter_mut() {
-        let x_min = 0. + enemy.size;
-        let x_max = window.width() - enemy.size;
-
-        let y_min = 0. + enemy.size;
-        let y_max = window.height() - enemy.size;
-
-        if transform.translation.x < x_min || transform.translation.x > x_max {
-            enemy.direction.x *= -1.;
-        } else if transform.translation.y < y_min || transform.translation.y > y_max {
-            enemy.direction.y *= -1.;
-        }
-
         let sum = enemy.direction * enemy.speed * time.delta_secs();
 
         transform.translation += Transform::from_xyz(sum.x, sum.y, 0.).translation;

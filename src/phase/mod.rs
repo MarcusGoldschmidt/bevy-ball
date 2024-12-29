@@ -1,9 +1,7 @@
 use crate::debug::ShowInfoPlugin;
 use crate::enemy::EnemyPlugin;
 use crate::health::HealthPlugin;
-use crate::phase::systems::{
-    increase_spawn_rate_over_time, setup, spawn_enemy_listener, track_mouse_to_shoot,
-};
+use crate::phase::systems::*;
 use crate::phase::PhaseStatus::Running;
 use crate::player::PlayerPlugin;
 use crate::shot::ShotPlugin;
@@ -35,8 +33,8 @@ impl Default for PhaseState {
     fn default() -> Self {
         Self {
             start_at: Instant::now(),
-            base_spawn_time: 4.,
-            enemy_spawn_time: 4.,
+            base_spawn_time: 1.,
+            enemy_spawn_time: 1.,
             last_enemy_spawn_in_seconds: 0.,
             status: Running,
         }
@@ -63,6 +61,8 @@ pub struct SpawnEnemyEvent {
     pub speed: EnemySpeed,
 
     pub color: Color,
+
+    pub xp_on_death: u32,
 }
 
 impl Default for SpawnEnemyEvent {
@@ -71,6 +71,7 @@ impl Default for SpawnEnemyEvent {
             size: 10.,
             speed: EnemySpeed::RandomNormal,
             color: Color::LinearRgba(LinearRgba::RED),
+            xp_on_death: 1,
         }
     }
 }
@@ -89,7 +90,7 @@ impl Plugin for PhasePlugin {
             .add_plugins(HealthPlugin)
             .add_plugins(ShotPlugin)
             .add_systems(Startup, setup)
-            .add_systems(Update, track_mouse_to_shoot)
+            .add_systems(Update, track_palyer_where_to_shoot)
             .add_systems(Update, spawn_enemy_listener)
             .add_systems(Last, increase_spawn_rate_over_time);
     }

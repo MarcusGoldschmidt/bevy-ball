@@ -4,6 +4,7 @@ use crate::phase::{EnemySpeed, PhaseState, SpawnEnemyEvent};
 use crate::player::player::Player;
 use crate::shared::InfoText;
 use crate::shot::Shooter;
+use crate::utils::random_direction;
 use bevy::asset::Assets;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::tailwind::FUCHSIA_500;
@@ -25,10 +26,13 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut spawn_enemy_event_writter: EventWriter<SpawnEnemyEvent>,
 ) {
-    commands.insert_resource(PhaseState::default());
+    commands.insert_resource(PhaseState {
+        enemy_spawn_time: 6.,
+        ..PhaseState::default()
+    });
     commands.insert_resource(AmbientLight {
         color: RED.into(),
-        brightness: 1.02,
+        brightness: 50.,
     });
 
     // Text
@@ -52,10 +56,11 @@ pub fn setup(
             ..Player::default()
         },
         Shooter {
-            fire_rate: 1.,
+            fire_rate: 5.,
             damage: 1.,
             direction: Vec2::new(0., 1.),
             last_shoot: std::time::Instant::now(),
+            should_shoot: true,
         },
         Transform::from(transform_center),
         Mesh2d(meshes.add(Circle::new(Player::default().size))),
@@ -127,22 +132,31 @@ pub fn spawn_enemy_listener(
     }
 }
 
-pub fn track_mouse_to_shoot(
-    q_windows: Query<&Window, With<PrimaryWindow>>,
+pub fn track_palyer_where_to_shoot(
+    mut enemy_query: Query<(&Enemy, &Transform)>,
     mut player_query: Query<(&Player, &mut Shooter, &Transform)>,
 ) {
-    // Games typically only have one window (the primary window)
-    if let Ok(window) = q_windows.get_single() {
-        if let Some(position) = window.cursor_position() {
-            if let Ok((_player, mut shooter, player_position)) = player_query.get_single_mut() {
-                // Y it's different because the window height is inverted
-                let position = Vec2::new(position.x, window.height() - position.y);
+    let (mut direction, mut near_distance) = (random_direction(), f32::MAX);
 
-                let direction = (position - player_position.translation.truncate()).normalize();
+    if let Ok((_player, mut shooter, player_position)) = player_query.get_single_mut() {
+        let mut any_enemy = false;
 
-                shooter.direction = direction;
+        for (_, transform) in enemy_query.iter_mut() {
+            any_enemy = true;
+
+            let distance = player_position.translation.distance(transform.translation);
+
+            if distance < near_distance {
+                near_distance = distance;
+
+                direction = (transform.translation - player_position.translation)
+                    .truncate()
+                    .normalize()
             }
         }
+
+        shooter.direction = direction;
+        shooter.should_shoot = any_enemy;
     }
 }
 

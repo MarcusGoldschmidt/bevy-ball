@@ -1,10 +1,12 @@
+use crate::player::PlayerReceiveXpEvent;
+use crate::timefade::{MoveAndFade, TimeFadePlugin};
 use crate::utils::random_direction;
 use bevy::app::{App, Plugin, Update};
 use bevy::color::Color;
 use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::log::warn;
 use bevy::prelude::*;
-use bevy::sprite::AlphaMode2d;
+use rand::{random, Rng};
 
 #[derive(Event)]
 pub struct DeathEvent {
@@ -21,14 +23,8 @@ pub struct DamageEvent {
 pub struct Health2d {
     pub max_health: f32,
     pub health: f32,
-}
 
-#[derive(Component)]
-struct ExplosionParticle {
-    speed: f32,
-    direction: Vec2,
-    deceleration: f32,
-    timer: Timer,
+    pub xp_on_death: u32,
 }
 
 impl Health2d {
@@ -36,6 +32,7 @@ impl Health2d {
         Self {
             max_health: v,
             health: v,
+            ..Self::default()
         }
     }
 }
@@ -45,6 +42,7 @@ impl Default for Health2d {
         Self {
             max_health: 5.,
             health: 5.,
+            xp_on_death: 1,
         }
     }
 }
@@ -54,10 +52,11 @@ pub struct HealthPlugin;
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<DeathEvent>()
+            .add_event::<PlayerReceiveXpEvent>()
+            .add_plugins(TimeFadePlugin)
             .add_systems(Update, death_check)
             .add_systems(Update, damage_listener)
-            .add_systems(Update, death_check_listener)
-            .add_systems(Update, move_death_particles);
+            .add_systems(Update, death_check_listener);
     }
 }
 
@@ -92,61 +91,32 @@ pub fn death_check_listener(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
     mut event_reader: EventReader<DeathEvent>,
+    mut xp_writer: EventWriter<PlayerReceiveXpEvent>,
     health_query: Query<(&Health2d, &Transform)>,
 ) {
     for event in event_reader.read() {
         if let Some(entity) = commands.get_entity(event.entity) {
-            if let Ok((_, transform)) = health_query.get(event.entity) {
+            if let Ok((health, transform)) = health_query.get(event.entity) {
                 entity.try_despawn_recursive();
 
-                (0..13).for_each(|_| {
+                xp_writer.send(PlayerReceiveXpEvent {
+                    xp: health.xp_on_death,
+                });
+
+                (0..rand::thread_rng().gen_range(7..20)).for_each(|_| {
                     commands.spawn((
-                        ExplosionParticle {
-                            speed: 400.,
+                        MoveAndFade {
+                            speed: rand::thread_rng().gen_range(350..450) as f32,
                             direction: random_direction(),
-                            deceleration: 10.,
-                            timer: Timer::from_seconds(0.75, TimerMode::Once),
+                            deceleration: rand::thread_rng().gen_range(5..10) as f32,
+                            timer: Timer::from_seconds(random::<f32>() + 0.3, TimerMode::Once),
                         },
                         transform.clone(),
-                        Mesh2d(meshes.add(Circle::new(2.))),
+                        Mesh2d(meshes.add(Circle::new(1.))),
                         MeshMaterial2d(materials.add(Color::srgb(7.5, 7.5, 0.))),
                     ));
                 });
             }
-        }
-    }
-}
-
-pub fn move_death_particles(
-    time: Res<Time>,
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut death_query: Query<(
-        Entity,
-        &mut ExplosionParticle,
-        &mut Transform,
-        &mut MeshMaterial2d<ColorMaterial>,
-    )>,
-) {
-    for (entity, mut particle, mut transform, mut material) in death_query.iter_mut() {
-        particle.timer.tick(time.delta());
-
-        let sum = particle.direction * particle.speed * time.delta_secs();
-
-        particle.speed -= (particle.deceleration * particle.timer.fraction_remaining());
-
-        if let Some(mut color_material) = materials.get_mut(material.id()) {
-            color_material.alpha_mode = AlphaMode2d::Blend;
-
-            color_material
-                .color
-                .set_alpha(particle.timer.fraction_remaining());
-        }
-
-        if particle.timer.finished() {
-            commands.entity(entity).despawn_recursive();
-        } else {
-            transform.translation += Transform::from_xyz(sum.x, sum.y, 0.).translation;
         }
     }
 }
