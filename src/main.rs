@@ -8,6 +8,7 @@ mod shot;
 mod systems;
 mod utils;
 mod timefade;
+mod quadtree;
 
 use crate::phase::PhasePlugin;
 use crate::systems::{exit_game, handle_game_over, on_window_resized, spawn_camera};

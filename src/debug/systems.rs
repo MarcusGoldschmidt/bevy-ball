@@ -2,7 +2,7 @@ use crate::phase::PhaseState;
 use crate::player::player::Player;
 use crate::shared::InfoText;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy::prelude::{Query, Res, Text, Transform, With};
+use bevy::prelude::{Query, Res, Text, With};
 
 pub fn show_info(
     state: Res<PhaseState>,
