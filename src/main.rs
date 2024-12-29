@@ -1,14 +1,18 @@
 mod debug;
 mod enemy;
+mod health;
 mod phase;
 mod player;
 mod shared;
+mod shot;
 mod systems;
+mod utils;
 
 use crate::phase::PhasePlugin;
 use crate::systems::{exit_game, handle_game_over, on_window_resized, spawn_camera};
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
+use bevy::window::WindowMode;
 
 #[derive(Event)]
 struct RestartEvent;
@@ -22,7 +26,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Snake".to_string(),
-                mode: bevy::window::WindowMode::BorderlessFullscreen,
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
                 ..default()
             }),
             ..default()
