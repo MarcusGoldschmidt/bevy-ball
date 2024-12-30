@@ -2,6 +2,7 @@ use crate::enemy::Enemy;
 use crate::health::Health2d;
 use crate::phase::{EnemySpeed, PhaseState, SpawnEnemyEvent};
 use crate::player::player::Player;
+use crate::quadtree::{Bounds, QuadTree};
 use crate::shared::InfoText;
 use crate::shot::Shooter;
 use crate::utils::random_direction;
@@ -11,13 +12,24 @@ use bevy::color::palettes::tailwind::FUCHSIA_500;
 use bevy::color::{Color, LinearRgba, Luminance};
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{
-    AmbientLight, Circle, ColorMaterial, Commands, EventReader, EventWriter, Mesh, Mesh2d,
+    AmbientLight, Circle, ColorMaterial, Commands, Entity, EventReader, EventWriter, Mesh, Mesh2d,
     MeshMaterial2d, Query, ResMut, Text, Transform, Window, With,
 };
 use bevy::text::{TextColor, TextFont};
 use bevy::window::PrimaryWindow;
 use rand::random;
 use std::iter;
+
+pub fn insert_resources(mut commands: Commands, window_query: Query<&Window, With<PrimaryWindow>>) {
+    let window = window_query.get_single().unwrap();
+
+    let tree = QuadTree::<Entity, Enemy>::new(
+        Bounds::new_simple(window.width(), window.height()),
+        Some(4),
+    );
+
+    commands.insert_resource(tree);
+}
 
 pub fn setup(
     mut commands: Commands,
@@ -26,6 +38,8 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut spawn_enemy_event_writter: EventWriter<SpawnEnemyEvent>,
 ) {
+    let window = window_query.get_single().unwrap();
+
     commands.insert_resource(PhaseState {
         enemy_spawn_time: 6.,
         ..PhaseState::default()
@@ -45,8 +59,6 @@ pub fn setup(
         },
         TextColor(Color::LinearRgba(LinearRgba::WHITE)),
     ));
-
-    let window = window_query.get_single().unwrap();
 
     let transform_center = Transform::from_xyz(window.width() / 2., window.height() / 2., 1.);
 
@@ -114,8 +126,7 @@ pub fn spawn_enemy_listener(
 
             // Add Heath bar with
             // https://bevy-cheatbook.github.io/fundamentals/hierarchy.html
-
-            commands.spawn((
+            let ent_command = commands.spawn((
                 Enemy {
                     size: event.size,
                     speed,
@@ -126,6 +137,12 @@ pub fn spawn_enemy_listener(
                 Mesh2d(meshes.add(Circle::new(event.size))),
                 MeshMaterial2d(materials.add(ColorMaterial::from(color))),
             ));
+
+            // quad_tree.insert(
+            //     ent_command.id(),
+            //     ent_command.id(),
+            //     Vec2::new(enemy_position.x, enemy_position.y),
+            // );
 
             state.last_enemy_spawn_in_seconds = 0.;
         }

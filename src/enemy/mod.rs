@@ -1,14 +1,14 @@
 use bevy::app::{App, Plugin, Update};
 use bevy::math::Vec2;
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 mod systems;
 
+use super::health::{DamageEvent, Health2d};
+use crate::quadtree::{Bounds, QuadTree};
 use systems::*;
 
-use super::health::{DamageEvent, Health2d};
-
-#[derive(Component)]
+#[derive(Component, Clone)]
 #[require(Health2d)]
 pub struct Enemy {
     pub size: f32,

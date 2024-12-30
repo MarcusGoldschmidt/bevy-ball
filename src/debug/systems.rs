@@ -8,7 +8,7 @@ pub fn show_info(
     state: Res<PhaseState>,
     mut text_query: Query<&mut Text, With<InfoText>>,
     diagnostics: Res<DiagnosticsStore>,
-    mut player_query: Query<&mut Player>,
+    player_query: Query<&Player>,
 ) {
     let mut text_info = format!("Score: {:.0}\n", state.score());
 

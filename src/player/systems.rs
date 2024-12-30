@@ -3,13 +3,11 @@ use crate::phase::{PhaseState, PhaseStatus};
 use crate::player::player::Player;
 use crate::player::{PlayerMovedEvent, PlayerReceiveXpEvent};
 use crate::timefade::MoveAndFade;
-use crate::utils::random_direction;
 use bevy::input::ButtonInput;
 use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy::time::Time;
 use bevy::window::PrimaryWindow;
-use rand::{random, Rng};
 
 pub fn enemy_hit_player(
     mut player_query: Query<(&Player, &Transform)>,

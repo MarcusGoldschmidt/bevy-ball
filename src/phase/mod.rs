@@ -1,13 +1,14 @@
 use crate::debug::ShowInfoPlugin;
-use crate::enemy::EnemyPlugin;
+use crate::enemy::{Enemy, EnemyPlugin};
 use crate::health::HealthPlugin;
 use crate::phase::systems::*;
 use crate::phase::PhaseStatus::Running;
 use crate::player::PlayerPlugin;
+use crate::quadtree::{Bounds, QuadTree};
 use crate::shot::ShotPlugin;
 use bevy::app::{App, Last, Plugin, Startup, Update};
 use bevy::color::LinearRgba;
-use bevy::prelude::{Color, Component, Event, Resource};
+use bevy::prelude::*;
 use bevy::utils::Instant;
 
 mod systems;
@@ -84,11 +85,16 @@ pub struct PhasePlugin;
 impl Plugin for PhasePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SpawnEnemyEvent>()
+            .insert_resource(QuadTree::<Entity, Enemy>::new(
+                Bounds::new_simple(100., 100.),
+                Some(4),
+            ))
             .add_plugins(ShowInfoPlugin)
             .add_plugins(PlayerPlugin)
             .add_plugins(EnemyPlugin)
             .add_plugins(HealthPlugin)
             .add_plugins(ShotPlugin)
+            .add_systems(Main, insert_resources)
             .add_systems(Startup, setup)
             .add_systems(Update, track_palyer_where_to_shoot)
             .add_systems(Update, spawn_enemy_listener)

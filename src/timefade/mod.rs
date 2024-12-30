@@ -32,14 +32,14 @@ pub fn move_and_fade_particles(
         &mut MeshMaterial2d<ColorMaterial>,
     )>,
 ) {
-    for (entity, mut particle, mut transform, mut material) in death_query.iter_mut() {
+    for (entity, mut particle, mut transform, material) in death_query.iter_mut() {
         particle.timer.tick(time.delta());
 
         let sum = particle.direction * particle.speed * time.delta_secs();
 
-        particle.speed -= (particle.deceleration * particle.timer.fraction_remaining());
+        particle.speed -= particle.deceleration * particle.timer.fraction_remaining();
 
-        if let Some(mut color_material) = materials.get_mut(material.id()) {
+        if let Some(color_material) = materials.get_mut(material.id()) {
             color_material.alpha_mode = AlphaMode2d::Blend;
 
             color_material

@@ -1,17 +1,22 @@
-#[derive(Debug)]
+use bevy::prelude::*;
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Copy, Clone)]
 pub struct Bounds {
-    pub x: f64,
-    pub y: f64,
-    pub max_x: f64,
-    pub max_y: f64,
+    pub x: f32,
+    pub y: f32,
+    pub max_x: f32,
+    pub max_y: f32,
 }
 
 impl Bounds {
-    pub fn new(x: f64, y: f64, max_x: f64, max_y: f64) -> Self {
+    pub fn new(x: f32, y: f32, max_x: f32, max_y: f32) -> Self {
         Bounds { x, y, max_x, max_y }
     }
 
-    pub fn new_simple(max_x: f64, max_y: f64) -> Self {
+    pub fn new_simple(max_x: f32, max_y: f32) -> Self {
         Bounds {
             x: 0.,
             y: 0.,
@@ -21,35 +26,26 @@ impl Bounds {
     }
 }
 
-#[derive(Debug)]
-pub struct QuadTree<T> {
-    deep: usize,
-    tree: QuadTreeEnum<T>,
-}
-
-#[derive(Debug)]
-enum QuadTreeEnum<T> {
+#[derive(Resource, Debug)]
+pub enum QuadTree<TKey: Eq + Hash + Clone, T: Clone> {
     Leaf {
         bounds: Bounds,
-        items: Vec<Box<T>>,
+        items: HashMap<TKey, Arc<Mutex<T>>>,
     },
     Node {
         bounds: Bounds,
-        children: [Box<QuadTreeEnum<T>>; 4],
+        children: [Box<QuadTree<TKey, T>>; 4],
     },
 }
 
-impl<T> QuadTree<T> {
+impl<TKey: Eq + Hash + Clone, T: Clone> QuadTree<TKey, T> {
     pub fn new(bounds: Bounds, deep: Option<usize>) -> Self {
         let deep = deep.unwrap_or(4);
 
-        QuadTree {
-            deep,
-            tree: Self::build_deep(bounds, deep),
-        }
+        Self::build_deep(bounds, deep)
     }
 
-    fn find_index(bounds: &Bounds, x: f64, y: f64) -> usize {
+    fn find_index(bounds: &Bounds, x: f32, y: f32) -> usize {
         let x_mid = (bounds.x + bounds.max_x) / 2.0;
         let y_mid = (bounds.y + bounds.max_y) / 2.0;
         let index = if x < x_mid {
@@ -100,53 +96,77 @@ impl<T> QuadTree<T> {
         ]
     }
 
-    fn build_node(bounds: Bounds, deep: usize) -> QuadTreeEnum<T> {
+    fn build_node(bounds: Bounds, deep: usize) -> QuadTree<TKey, T> {
         let four_bounds = Self::find_quad_bounds(&bounds)
             .map(move |inner_bound| Box::new(Self::build_deep(inner_bound, deep - 1)));
 
-        QuadTreeEnum::Node {
+        QuadTree::Node {
             bounds,
             children: four_bounds,
         }
     }
 
-    fn build_deep(bounds: Bounds, deep: usize) -> QuadTreeEnum<T> {
+    fn build_deep(bounds: Bounds, deep: usize) -> QuadTree<TKey, T> {
         match deep {
-            0 => QuadTreeEnum::Leaf {
+            0 => QuadTree::Leaf {
                 bounds,
-                items: Vec::new(),
+                items: HashMap::new(),
             },
             _ => Self::build_node(bounds, deep),
         }
     }
 
-    pub fn insert(&mut self, x: f64, y: f64, item: T) {
-        if let Some(items) = self.tree.find(x, y) {
-            items.push(Box::new(item));
+    pub fn insert(&mut self, key: TKey, item: T, position: Vec2) {
+        if let Some(mut items) = self.find(position) {
+            items.insert(key, Arc::new(Mutex::new(item)));
             return;
         }
     }
-}
 
-impl<T> QuadTreeEnum<T> {
-    pub fn find(&mut self, x: f64, y: f64) -> Option<&mut Vec<Box<T>>> {
+    pub fn delete(&mut self, key: TKey, position: Vec2) {
+        if let Some(mut items) = self.find(position) {
+            items.remove(&key);
+            return;
+        }
+    }
+    pub fn find_id(&mut self, key: TKey, pos: Vec2) -> Option<&mut Arc<Mutex<T>>> {
+        if let Some(mut items) = self.find(pos) {
+            items.get_mut(&key)
+        } else {
+            None
+        }
+    }
+
+    pub fn find(&mut self, pos: Vec2) -> Option<&mut HashMap<TKey, Arc<Mutex<T>>>> {
+        let (x, y) = (pos.x, pos.y);
+
         match self {
-            QuadTreeEnum::Leaf {
-                bounds,
-                ref mut items,
-            } => {
+            QuadTree::Leaf { bounds, items } => {
                 if x >= bounds.x && x < bounds.max_x && y >= bounds.y && y < bounds.max_y {
                     Some(items)
                 } else {
                     None
                 }
             }
-            QuadTreeEnum::Node {
-                bounds,
-                ref mut children,
-            } => {
-                let index = QuadTree::<T>::find_index(bounds, x, y);
-                children[index].find(x, y)
+            QuadTree::Node { bounds, children } => {
+                let index = QuadTree::<TKey, T>::find_index(&bounds, x, y);
+
+                children[index].find(pos)
+            }
+        }
+    }
+    fn all_items(&self) -> HashMap<TKey, Arc<Mutex<T>>> {
+        match self {
+            QuadTree::Leaf { items, .. } => items.clone(),
+            QuadTree::Node { children, .. } => {
+                let mut items = HashMap::<TKey, Arc<Mutex<T>>>::new();
+                for child in children.iter() {
+                    for x in child.all_items() {
+                        items.insert(x.0, x.1);
+                    }
+                }
+
+                items
             }
         }
     }
@@ -157,11 +177,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normal_curve_test() {
-        let mut tree = QuadTree::new(Bounds::new_simple(100., 100.), Some(4));
+    fn quad_tree_test() {
+        let mut tree = QuadTree::<u32, u32>::new(Bounds::new_simple(100., 100.), Some(4));
 
-        tree.insert(10., 10., 1);
+        tree.insert(1, 1, Vec2::new(10., 10.));
 
-        println!("{:#?}", tree);
+        println!("{:#?}", tree.all_items());
     }
 }

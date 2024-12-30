@@ -1,4 +1,6 @@
+use crate::enemy::Enemy;
 use crate::player::PlayerReceiveXpEvent;
+use crate::quadtree::QuadTree;
 use crate::timefade::{MoveAndFade, TimeFadePlugin};
 use crate::utils::random_direction;
 use bevy::app::{App, Plugin, Update};
@@ -93,11 +95,14 @@ pub fn death_check_listener(
     mut event_reader: EventReader<DeathEvent>,
     mut xp_writer: EventWriter<PlayerReceiveXpEvent>,
     health_query: Query<(&Health2d, &Transform)>,
+    mut quad_tree: ResMut<QuadTree<Entity, Enemy>>,
 ) {
     for event in event_reader.read() {
         if let Some(entity) = commands.get_entity(event.entity) {
             if let Ok((health, transform)) = health_query.get(event.entity) {
                 entity.try_despawn_recursive();
+
+                quad_tree.delete(event.entity, transform.translation.truncate());
 
                 xp_writer.send(PlayerReceiveXpEvent {
                     xp: health.xp_on_death,
